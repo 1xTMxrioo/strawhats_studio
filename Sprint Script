@@ -1,0 +1,42 @@
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local running = false
+local sliding = false
+local defaultWalkSpeed = 16
+local sprintWalkSpeed = 35
+local slideSpeed = 50
+local slideDuration = 0.4
+local defaultFOV = 70
+local sprintFOV = 80
+local slideFOV = 90
+
+local config {
+	SprintAnimation = "rbxassetid://1111111"
+	SlideAnimation = "rbxassetid://1111111"
+	
+	SprintStartSound = "rbxassetid://9073329959",
+	SprintLoopSound = "rbxassetid://9073330119",
+	SlideSound = "rbxassetid://9073330476",
+	
+	SprintVolume = 0.3,
+	SlideVolume = 0.5,
+
+	EnableAnimations = true,
+	EnableSounds = true
+}
+
+local currentSprintAnimation = nil
+local currentSlideAnimation = nil
+local sprintLoopSound = nil
+local animator = nil
+
+local function getCurrentSlideSpeed()
+	if sliding then
+		return slideSpeed
+	elseif running then
+		return sprintWalkSpeed
+	else
+		return defaultWalkSpeed
+	end
+end
