@@ -1,0 +1,104 @@
+SERVERSCRIPTSTORAGE
+local Players = game:GetService("Players")
+local Teams = game:GetService("Teams")
+
+local currentChasers = nil
+local touchConnections = {}
+local lastTagTime = 0
+local tagCooldown = 1
+
+local function applyHighlight(player)
+	if player.Character and not player.Character:FindFirstChild("ChasersGlow") then
+		local highlight = Instance.new("Highlight")
+		highlight.Name = "ChasersGlow"
+		highlight.FillColor = Color3.fromRGB(255, 0, 0)
+		highlight.OutlineColor = Color3.fromRGB(0,0,0)
+		highlight.Parent = player.Character
+	end
+end
+
+local function removeHighlight(player)
+	if player.Character then
+		local highlight = player.Character:FindFirstChild("ChasersGlow")
+		if highlight then
+			highlight:Destroy()
+		end
+	end
+end
+
+function makePlayerChasers(player)
+	if currentChasers then
+		clearTouchListeners(currentChasers)
+		removeHighlight(currentChasers)
+		currentChasers.Team = Teams.Runners
+		currentChasers.TeamColor = Teams.Runners.TeamColor
+	end
+
+	currentChasers = player
+	player.Team = Teams.Chasers
+	player.TeamColor = Teams.Chasers.TeamColor
+
+	applyHighlight(player)
+	setTouchListeners(player)
+end
+
+function setTouchListeners(ChasersPlayer)
+	if not ChasersPlayer.Character then return end
+
+	for _, part in ChasersPlayer.Character:GetChildren() do
+		if part:IsA("BasePart") then
+			part.Touched:Connect(function(hit)
+				local otherChar = hit:FindFirstAncestorOfClass("Model")
+				if otherChar and otherChar ~= ChasersPlayer.Character then
+					local otherPlayer = Players:GetPlayerFromCharacter(otherChar)
+					if otherPlayer and otherPlayer.Team ~= Teams.Chasers then
+						local now = tick()
+						if now - lastTagTime >= tagCooldown then
+							lastTagTime = now
+							makePlayerChasers(otherPlayer)
+						end
+					end
+				end
+			end)
+		end
+	end
+end
+
+function clearTouchListeners(player)
+	if touchConnections[player] then
+		for _, conn in ipairs(touchConnections[player]) do
+			conn:Disconnect()
+		end
+		touchConnections[player] = nil
+	end
+end
+
+Players.PlayerAdded:Connect(function(player)
+	player.Team = Teams.Runners
+	player.TeamColor = Teams.Runners.TeamColor
+
+	if not currentChasers then
+		makePlayerChasers(player)
+	end
+
+	player.CharacterAdded:Connect(function()
+		if player == currentChasers then
+			setTouchListeners(player)
+			applyHighlight(player)
+		end
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	if player == currentChasers then
+		current = nil
+	end
+	clearTouchListeners(player)
+end)
+
+task.delay(3, function()
+	local allPlayers = Players:GetPlayers()
+	if not currentChasers and #allPlayers > 0 then
+		makePlayerChasers(allPlayers[math.random(1, #allPlayers)])
+	end
+end)
