@@ -99,3 +99,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		updateSlideState(true)
 	end
 end)
+
+player.CharacterAdded:Connect(function(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	humanoid.Died:Connect(function()
+		stopSlide()
+	end)
+end)
