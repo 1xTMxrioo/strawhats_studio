@@ -40,3 +40,28 @@ local function stopSprintLoopSound()
 		sprintLoopSound = nil
 	end
 end
+
+local function playSprintAnimation()
+	if not Config.EnableAnimations or not animator then return end
+	
+	-- Stop current animation if playing
+	if currentSprintAnimation then
+		currentSprintAnimation:Stop()
+		currentSprintAnimation:Destroy()
+	end
+	
+	local animation = Instance.new("Animation")
+	animation.AnimationId = Config.SprintAnimation
+	currentSprintAnimation = animator:LoadAnimation(animation)
+	currentSprintAnimation.Looped = true
+	currentSprintAnimation.Priority = Enum.AnimationPriority.Action
+	currentSprintAnimation:Play()
+end
+
+local function stopSprintAnimation()
+	if currentSprintAnimation then
+		currentSprintAnimation:Stop()
+		currentSprintAnimation:Destroy()
+		currentSprintAnimation = nil
+	end
+end
