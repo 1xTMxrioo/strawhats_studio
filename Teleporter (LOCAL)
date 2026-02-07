@@ -1,0 +1,9 @@
+local gui = script.Parent:FindFirstChild("Teufort")
+if gui then
+	gui.Parent = game.StarterGui
+end
+if script.Parent:IsA("Model") then
+	script.Parent:Destroy()
+else
+	script:Destroy()
+end
