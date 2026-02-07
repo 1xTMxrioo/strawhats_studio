@@ -1,42 +1,42 @@
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
-local running = false
 local sliding = false
-local defaultWalkSpeed = 16
-local sprintWalkSpeed = 35
-local slideSpeed = 50
-local slideDuration = 0.4
-local defaultFOV = 70
-local sprintFOV = 80
-local slideFOV = 90
+local slideWalkSpeed = 45
+local slideFOV = 85
+local slideDuration = 0.8
 
-local config {
-	SprintAnimation = "rbxassetid://1111111"
-	SlideAnimation = "rbxassetid://1111111"
-	
-	SprintStartSound = "rbxassetid://9073329959",
-	SprintLoopSound = "rbxassetid://9073330119",
-	SlideSound = "rbxassetid://9073330476",
-	
-	SprintVolume = 0.3,
-	SlideVolume = 0.5,
+local function isSprinting()
+	--check if sprinting
+	local sprintScript = player:WaitForChild("PlayerScripts"):FindFirstChild("SprintScript")
+	if sprintScript and sprintScript:IsA("LocalScript") then
+		local character = player.Character
+		if character then
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if humanoid and humanoid.WalkSpeed >= 35 then
+				return true
+			end
+		end
+	end
+	return false
+end
 
-	EnableAnimations = true,
-	EnableSounds = true
-}
+local function startSprintLoopSound()
+	if not Config.EnableSounds or sprintLoopSound then return end
 
-local currentSprintAnimation = nil
-local currentSlideAnimation = nil
-local sprintLoopSound = nil
-local animator = nil
+	local sound = Instance.new("Sound")
+	sound.SoundId = Config.SprintLoopSound
+	sound.Volume = Config.SprintVolume * 0.7
+	sound.Looped = true
+	sound.Parent = workspace.CurrentCamera
+	sound:Play()
+	sprintLoopSound = sound
+end
 
-local function getCurrentSlideSpeed()
-	if sliding then
-		return slideSpeed
-	elseif running then
-		return sprintWalkSpeed
-	else
-		return defaultWalkSpeed
+local function stopSprintLoopSound()
+	if sprintLoopSound then
+		sprintLoopSound:Stop()
+		sprintLoopSound:Destroy()
+		sprintLoopSound = nil
 	end
 end
