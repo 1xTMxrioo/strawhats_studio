@@ -1,0 +1,101 @@
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local sliding = false
+local slideWalkSpeed = 45
+local slideFOV = 85
+local slideDuration = 0.8
+
+local function isSprinting()
+	local sprintScript = player:WaitForChild("PlayerScripts"):FindFirstChild("SprintScript")
+	if sprintScript and sprintScript:IsA("LocalScript") then
+		local character = player.Character
+		if character then
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if humanoid and humanoid.WalkSpeed >= 35 then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function stopSlide()
+	if not sliding then return end
+	sliding = false
+
+	local character = player.Character
+	if not character then return end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	if _G.restoreSprintSpeed then
+		_G.restoreSprintSpeed()
+	else
+		humanoid.WalkSpeed = 16
+	end
+
+	local currentFOV = workspace.CurrentCamera.FieldOfView
+	for i = 1, 5 do
+		workspace.CurrentCamera.FieldOfView = currentFOV - ((currentFOV - 70) * (i / 5))
+		task.wait(0.02)
+	end
+end
+
+local function updateSlideState(isSliding)
+	if sliding == isSliding then return end
+	sliding = isSliding
+
+	local character = player.Character
+	if not character then return end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	if sliding then
+		local currentFOV = workspace.CurrentCamera.FieldOfView
+
+		for i = 1, 5 do
+			workspace.CurrentCamera.FieldOfView = currentFOV + ((slideFOV - currentFOV) * (i / 5))
+			task.wait(0.02)
+		end
+
+		humanoid.WalkSpeed = slideWalkSpeed
+
+		local startTime = tick()
+		local jumped = false
+
+		local jumpConnection
+		jumpConnection = humanoid.StateChanged:Connect(function(oldState, newState)
+			if newState == Enum.HumanoidStateType.Jumping then
+				jumped = true
+				if jumpConnection then
+					jumpConnection:Disconnect()
+				end
+			end
+		end)
+
+		repeat
+			task.wait(0.1)
+		until (tick() - startTime >= slideDuration) or jumped or not sliding
+
+		if jumpConnection then
+			jumpConnection:Disconnect()
+		end
+
+		stopSlide()
+	end
+end
+
+local function canSlide()
+	return not sliding and isSprinting()
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+
+	if input.KeyCode == Enum.KeyCode.C and canSlide() then
+		updateSlideState(true)
+	end
+end)
