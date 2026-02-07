@@ -96,3 +96,38 @@ local function updateSprintState(isSprinting)
 	end
 end
 
+local function playSlideSound()
+	if not Config.EnableSounds then return end
+	
+	local sound = Instance.new("Sound")
+	sound.SoundId = Config.SlideSound
+	sound.Volume = Config.SlideVolume
+	sound.Parent = workspace.CurrentCamera
+	sound:Play()
+	sound.Ended:Connect(function()
+		sound:Destroy()
+	end)
+end
+
+local function playSlideAnimation()
+	if not Config.EnableAnimations or not animator then return end
+	if currentSlideAnimation then
+		currentSlideAnimation:Stop()
+		currentSlideAnimation:Destroy()
+	end
+	local animation = Instance.new("Animation")
+	animation.AnimationId = Config.SlideAnimation
+	currentSlideAnimation = animator:LoadAnimation(animation)
+	currentSlideAnimation.Looped = false
+	currentSlideAnimation.Priority = Enum.AnimationPriority.Action
+	currentSlideAnimation:Play()
+end
+
+local function stopSlideAnimation()
+	if currentSlideAnimation then
+		currentSlideAnimation:Stop()
+		currentSlideAnimation:Destroy()
+		currentSlideAnimation = nil
+	end
+end
+
