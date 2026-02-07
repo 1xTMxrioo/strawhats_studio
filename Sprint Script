@@ -1,29 +1,62 @@
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
+local running = false
 local sliding = false
-local slideWalkSpeed = 45
+local defaultWalkSpeed = 16
+local sprintWalkSpeed = 35
+local slideSpeed = 50
+local slideDuration = 0.4
+local defaultFOV = 70
+local sprintFOV = 80
 local slideFOV = 85
-local slideDuration = 0.8
 
-local function isSprinting()
-	--check if sprinting
-	local sprintScript = player:WaitForChild("PlayerScripts"):FindFirstChild("SprintScript")
-	if sprintScript and sprintScript:IsA("LocalScript") then
-		local character = player.Character
-		if character then
-			local humanoid = character:FindFirstChildOfClass("Humanoid")
-			if humanoid and humanoid.WalkSpeed >= 35 then
-				return true
-			end
-		end
+local Config = {
+	SprintAnimation = "rbxassetid://12543542357",
+	SlideAnimation = "rbxassetid://12543544789",
+	
+	SprintStartSound = "rbxassetid://9073329959",
+	SprintLoopSound = "rbxassetid://9073330119",
+	SlideSound = "rbxassetid://9073330476",
+	
+	SprintVolume = 0.3,
+	SlideVolume = 0.5,
+	
+	EnableAnimations = true,
+	EnableSounds = true
+}
+
+local currentSprintAnimation = nil
+local currentSlideAnimation = nil
+local sprintLoopSound = nil
+local animator = nil
+
+local function getCurrentWalkSpeed()
+	if sliding then
+		return slideSpeed
+	elseif running then
+		return sprintWalkSpeed
+	else
+		return defaultWalkSpeed
 	end
-	return false
+end
+
+local function playSprintStartSound()
+	if not Config.EnableSounds then return end
+	
+	local sound = Instance.new("Sound")
+	sound.SoundId = Config.SprintStartSound
+	sound.Volume = Config.SprintVolume
+	sound.Parent = workspace.CurrentCamera
+	sound:Play()
+	sound.Ended:Connect(function()
+		sound:Destroy()
+	end)
 end
 
 local function startSprintLoopSound()
 	if not Config.EnableSounds or sprintLoopSound then return end
-
+	
 	local sound = Instance.new("Sound")
 	sound.SoundId = Config.SprintLoopSound
 	sound.Volume = Config.SprintVolume * 0.7
@@ -44,7 +77,6 @@ end
 local function playSprintAnimation()
 	if not Config.EnableAnimations or not animator then return end
 	
-	-- Stop current animation if playing
 	if currentSprintAnimation then
 		currentSprintAnimation:Stop()
 		currentSprintAnimation:Destroy()
@@ -75,11 +107,15 @@ local function updateSprintState(isSprinting)
 
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not humanoid then return end
+
 	if running then
 		playSprintStartSound()
+		
 		task.wait(0.1)
 		startSprintLoopSound()
+		
 		playSprintAnimation()
+		
 		for i = 1, 5 do
 			workspace.CurrentCamera.FieldOfView = defaultFOV + ((sprintFOV - defaultFOV) * (i / 5))
 			task.wait(0.02)
@@ -87,7 +123,9 @@ local function updateSprintState(isSprinting)
 		humanoid.WalkSpeed = getCurrentWalkSpeed()
 	else
 		stopSprintLoopSound()
+		
 		stopSprintAnimation()
+		
 		for i = 1, 5 do
 			workspace.CurrentCamera.FieldOfView = sprintFOV - ((sprintFOV - defaultFOV) * (i / 5))
 			task.wait(0.02)
@@ -111,10 +149,12 @@ end
 
 local function playSlideAnimation()
 	if not Config.EnableAnimations or not animator then return end
+	
 	if currentSlideAnimation then
 		currentSlideAnimation:Stop()
 		currentSlideAnimation:Destroy()
 	end
+	
 	local animation = Instance.new("Animation")
 	animation.AnimationId = Config.SlideAnimation
 	currentSlideAnimation = animator:LoadAnimation(animation)
@@ -131,3 +171,98 @@ local function stopSlideAnimation()
 	end
 end
 
+local function startSlide()
+	if sliding or not running then return end
+
+	local character = player.Character
+	if not character then return end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then return end
+
+	sliding = true
+
+	playSlideSound()
+	playSlideAnimation()
+
+	local camera = workspace.CurrentCamera
+	local startFOV = camera.FieldOfView
+	local targetFOV = slideFOV
+
+	local transitionTime = 0.06
+	local steps = 3
+	for i = 1, steps do
+		local alpha = i / steps
+		camera.FieldOfView = startFOV + (targetFOV - startFOV) * alpha
+		task.wait(transitionTime / steps)
+	end
+
+	humanoid.WalkSpeed = slideSpeed
+	task.wait(slideDuration)
+	sliding = false
+	stopSlideAnimation()
+
+	local endTargetFOV = running and sprintFOV or defaultFOV
+	for i = 1, steps do
+		local alpha = i / steps
+		camera.FieldOfView = targetFOV + (endTargetFOV - targetFOV) * alpha
+		task.wait(transitionTime / steps)
+	end
+
+	humanoid.WalkSpeed = getCurrentWalkSpeed()
+end
+
+local function restoreWalkSpeed()
+	local character = player.Character
+	if not character then return end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+
+	humanoid.WalkSpeed = getCurrentWalkSpeed()
+end
+
+_G.restoreSprintSpeed = restoreWalkSpeed
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+
+	if input.KeyCode == Enum.KeyCode.LeftShift then
+		updateSprintState(true)
+	elseif input.KeyCode == Enum.KeyCode.C then
+		startSlide()
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+
+	if input.KeyCode == Enum.KeyCode.LeftShift then
+		updateSprintState(false)
+	end
+end)
+
+local function initializeCharacter(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	animator = humanoid:WaitForChild("Animator")
+	
+	humanoid.Died:Connect(function()
+		stopSprintAnimation()
+		stopSlideAnimation()
+		stopSprintLoopSound()
+		
+		running = false
+		sliding = false
+		humanoid.WalkSpeed = defaultWalkSpeed
+		workspace.CurrentCamera.FieldOfView = defaultFOV
+	end)
+end
+
+player.CharacterAdded:Connect(initializeCharacter)
+
+if player.Character then
+	initializeCharacter(player.Character)
+end
