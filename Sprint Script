@@ -65,3 +65,34 @@ local function stopSprintAnimation()
 		currentSprintAnimation = nil
 	end
 end
+
+local function updateSprintState(isSprinting)
+	if running == isSprinting then return end
+	running = isSprinting
+
+	local character = player.Character
+	if not character then return end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then return end
+	if running then
+		playSprintStartSound()
+		task.wait(0.1)
+		startSprintLoopSound()
+		playSprintAnimation()
+		for i = 1, 5 do
+			workspace.CurrentCamera.FieldOfView = defaultFOV + ((sprintFOV - defaultFOV) * (i / 5))
+			task.wait(0.02)
+		end
+		humanoid.WalkSpeed = getCurrentWalkSpeed()
+	else
+		stopSprintLoopSound()
+		stopSprintAnimation()
+		for i = 1, 5 do
+			workspace.CurrentCamera.FieldOfView = sprintFOV - ((sprintFOV - defaultFOV) * (i / 5))
+			task.wait(0.02)
+		end
+		humanoid.WalkSpeed = getCurrentWalkSpeed()
+	end
+end
+
