@@ -1,0 +1,95 @@
+local debounce = true
+local item = script.Parent
+local sfx = item.SFX
+
+
+local configuration = item.Parent.Configuration
+
+
+function itemSpin()
+	while true do
+		item.CFrame *= CFrame.fromEulerAnglesXYZ(0,0,0.1)
+		wait(0.02)
+	end
+end
+
+local spinCoroutine = coroutine.create(itemSpin)
+coroutine.resume(spinCoroutine)
+
+function GivePowerUp(status, hit)
+	local hrp = hit.Parent:FindFirstChild("HumanoidRootPart")
+	local hum = hit.Parent:FindFirstChild("Humanoid")
+	if status == "give" then
+		
+		item.Transparency = 1
+		item.ParticleEmitter.Enabled = false
+
+		
+		local light = Instance.new("PointLight")
+		local sparkles = Instance.new("Sparkles")
+		light.Name = "powerUpLight"
+		sparkles.Name = "powerUpSparkles"
+		sparkles.SparkleColor = configuration.SparkleColor.Value
+		light.Color = configuration.SparkleColor.Value
+		light.Brightness = 10
+		light.Parent = hrp
+		sparkles.Parent = hrp
+
+		
+		local hover = Instance.new("BodyPosition")
+		hover.Name = "float"
+		hover.Parent = hrp
+		hover.D = 1250
+		hover.MaxForce = Vector3.new(0,15000,0)
+		hover.P = 10000
+		hover.Position = Vector3.new(0,configuration.Height.Value,0)
+		hum.WalkSpeed *= configuration.SpeedMultiply.Value
+
+
+
+		local sfxClone = sfx:Clone()
+		sfxClone.Parent = hrp
+		sfxClone:Play()
+	elseif status == "take" then
+
+		item.Transparency = 0
+		item.ParticleEmitter.Enabled = true
+		
+
+		if hrp:FindFirstChild("float") then
+			hrp:FindFirstChild("float"):Destroy()
+		end
+		hum.WalkSpeed /= configuration.SpeedMultiply.Value
+		
+		
+
+		if hrp:FindFirstChild("powerUpLight") then
+			hrp:FindFirstChild("powerUpLight"):Destroy()
+		end
+		if hrp:FindFirstChild("powerUpSparkles") then
+			hrp:FindFirstChild("powerUpSparkles"):Destroy()
+		end
+		
+	
+		if hrp:FindFirstChild("SFX") then
+			hrp:FindFirstChild("SFX"):Destroy()
+		end
+	end
+end
+
+
+item.Touched:Connect(function(hit)
+	if hit.Parent:FindFirstChild("Humanoid") then
+		if not debounce then return end
+		debounce = false
+		
+		GivePowerUp("give", hit)
+		
+		wait(configuration.WaitTime.Value)
+		
+		GivePowerUp("take", hit)
+		
+		debounce = true
+		
+	end
+end)
