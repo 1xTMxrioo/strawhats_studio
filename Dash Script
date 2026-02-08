@@ -3,15 +3,60 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local dashing = false
 local cooldown = false
+local currentDashAnimation = nil
+local animator = nil
+
+local Config = {
+	DashAnimation = "rbxassetid://110664551244065",
+	DashSound = "rbxassetid://9073329959",
+	DashVolume = 0.4,
+	EnableAnimations = true,
+	EnableSounds = true
+}
+
+local function playDashSound()
+	if not Config.EnableSounds then return end
+	
+	local sound = Instance.new("Sound")
+	sound.SoundId = Config.DashSound
+	sound.Volume = Config.DashVolume
+	sound.Parent = workspace.CurrentCamera
+	sound:Play()
+	sound.Ended:Connect(function()
+		sound:Destroy()
+	end)
+end
+
+local function playDashAnimation()
+	if not Config.EnableAnimations or not animator then return end
+	
+	if currentDashAnimation then
+		currentDashAnimation:Stop()
+		currentDashAnimation:Destroy()
+	end
+	
+	local animation = Instance.new("Animation")
+	animation.AnimationId = Config.DashAnimation
+	currentDashAnimation = animator:LoadAnimation(animation)
+	currentDashAnimation.Looped = false
+	currentDashAnimation.Priority = Enum.AnimationPriority.Action
+	currentDashAnimation:Play()
+end
+
+local function stopDashAnimation()
+	if currentDashAnimation then
+		currentDashAnimation:Stop()
+		currentDashAnimation:Destroy()
+		currentDashAnimation = nil
+	end
+end
 
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then return end
 
-	-- Check if sliding (prevent dash while sliding)
 	local slideScript = player:WaitForChild("PlayerScripts"):FindFirstChild("SlideScript")
 	local isSliding = false
 	if slideScript and slideScript:IsA("LocalScript") then
-		-- Simple check - if walk speed is 45, assume sliding
 		local character = player.Character
 		if character then
 			local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -21,6 +66,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		end
 	end
 
+	if _G.isCrouching and _G.isCrouching() then
+		return
+	end
+	
 	if input.KeyCode == Enum.KeyCode.Q and not dashing and not cooldown and not isSliding then
 		dashing = true
 		cooldown = true
@@ -31,38 +80,45 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if not humanoid then return end
 
-		-- Store current FOV to restore properly
+		playDashSound()
+		playDashAnimation()
+
 		local currentFOV = workspace.CurrentCamera.FieldOfView
 
-		-- Camera zoom effect
 		for i = 1, 3 do
 			workspace.CurrentCamera.FieldOfView = currentFOV + (i * 3)
 			task.wait(0.02)
 		end
 
-		-- Apply dash speed
 		humanoid.WalkSpeed = 70
-
-		-- Wait for dash duration
 		task.wait(0.4)
 
-		-- Restore correct speed (respecting sprint state)
+		stopDashAnimation()
 		if _G.restoreSprintSpeed then
 			_G.restoreSprintSpeed()
 		else
 			humanoid.WalkSpeed = 16
 		end
-
-		-- Reverse camera zoom
 		for i = 1, 3 do
 			workspace.CurrentCamera.FieldOfView = currentFOV + 9 - (i * 3)
 			task.wait(0.02)
 		end
 
 		dashing = false
-
-		-- Start cooldown
 		task.wait(3)
 		cooldown = false
 	end
 end)
+
+local function initializeCharacter(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	animator = humanoid:WaitForChild("Animator")
+	humanoid.Died:Connect(function()
+		stopDashAnimation()
+	end)
+end
+
+player.CharacterAdded:Connect(initializeCharacter)
+if player.Character then
+	initializeCharacter(player.Character)
+end
