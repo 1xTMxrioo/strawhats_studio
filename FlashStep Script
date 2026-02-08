@@ -1,0 +1,113 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+local TELEPORT_DISTANCE = 45
+local COOLDOWN_TIME = 7
+local FLASH_DURATION = 0.2
+
+local isOnCooldown = false
+local cooldownEndTime = 0
+
+local function createFlashEffect(position)
+	local flashPart = Instance.new("Part")
+	flashPart.Size = Vector3.new(1, 1, 1)
+	flashPart.Position = position
+	flashPart.Anchored = true
+	flashPart.CanCollide = false
+	flashPart.Transparency = 0.8
+	flashPart.BrickColor = BrickColor.new("Cyan")
+	flashPart.Material = Enum.Material.Neon
+	flashPart.Parent = workspace
+	
+	local expandTween = TweenService:Create(flashPart, TweenInfo.new(FLASH_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(10, 10, 10),
+		Transparency = 1
+	})
+	
+	expandTween:Play()
+	expandTween.Completed:Connect(function()
+		flashPart:Destroy()
+	end)
+	
+	local trail = Instance.new("Trail")
+	trail.Attachment0 = humanoidRootPart:FindFirstChild("FlashAttachment") or Instance.new("Attachment")
+	trail.Attachment0.Name = "FlashAttachment"
+	trail.Attachment0.Parent = humanoidRootPart
+	trail.Attachment1 = trail.Attachment0
+	trail.Color = ColorSequence.new(Color3.new(0, 1, 1))
+	trail.Transparency = NumberSequence.new(0, 1)
+	trail.Lifetime = 0.3
+	trail.Parent = humanoidRootPart
+	
+	task.wait(FLASH_DURATION)
+	trail:Destroy()
+end
+
+local function performFlashstep()
+	if isOnCooldown then
+		local remainingTime = math.ceil(cooldownEndTime - tick())
+		print("Flashstep on cooldown! " .. remainingTime .. " seconds remaining.")
+		return
+	end
+	
+	if humanoid.Health <= 0 then
+		return
+	end
+	
+	-- Temporarily unlock cursor from shift lock for better control
+	local wasShiftLocked = player.DevEnableMouseLock
+	player.DevEnableMouseLock = false
+	UserInputService.MouseIconEnabled = true
+	
+	local camera = workspace.CurrentCamera
+	local lookDirection = camera.CFrame.LookVector
+	lookDirection = Vector3.new(lookDirection.X, 0, lookDirection.Z).Unit
+	
+	local currentPosition = humanoidRootPart.Position
+	local targetPosition = currentPosition + (lookDirection * TELEPORT_DISTANCE)
+
+	createFlashEffect(currentPosition)
+	humanoidRootPart.CFrame = CFrame.new(targetPosition, targetPosition + lookDirection)
+	createFlashEffect(targetPosition)
+	isOnCooldown = true
+	cooldownEndTime = tick() + COOLDOWN_TIME
+	print("Flashstep activated! Cooldown started.")
+	task.spawn(function()
+		task.wait(COOLDOWN_TIME)
+		isOnCooldown = false
+		print("Flashstep ready!")
+	end)
+
+	task.spawn(function()
+		task.wait(0.5)
+		if wasShiftLocked then
+			player.DevEnableMouseLock = true
+		end
+		UserInputService.MouseIconEnabled = false
+	end)
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	
+	if input.KeyCode == Enum.KeyCode.R then
+		performFlashstep()
+	end
+end)
+
+player.CharacterAdded:Connect(function(newCharacter)
+	character = newCharacter
+	humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+	humanoid = character:WaitForChild("Humanoid")
+	
+	isOnCooldown = false
+end)
+
+print("Flashstep script loaded! Press R to teleport 30 studs forward.")
